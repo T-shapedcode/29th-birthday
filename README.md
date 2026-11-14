@@ -1,4 +1,4 @@
-# ❦ The Vision Book — Chapter 29
+# ❦ The Vision Book
 
 A private, elegant guide & journal for becoming the woman you envision: identity narrative,
 life chapters, psychological exercises, guided visualisations, daily journaling and a mood board.
@@ -8,8 +8,9 @@ life chapters, psychological exercises, guided visualisations, daily journaling 
 | Page | What you do there | Psychology behind it |
 |---|---|---|
 | **Welcome** | Quote & affirmation of the day (IT / FR / RU), stats, your wheel of life | Priming, language practice |
-| **Who I'm Becoming** | Her portrait, values & core feelings, letter from your 30-year-old self, Best Possible Self, *walk my talk* audit | Identity-based habits, future-self continuity (Hershfield), Best Possible Self (King), ACT values |
+| **Who I'm Becoming** | Her portrait, values & core feelings, letter from your next-birthday self, Best Possible Self, *walk my talk* audit | Identity-based habits, future-self continuity (Hershfield), Best Possible Self (King), ACT values |
 | **Life Chapters** | Wheel of life + 8 chapters: Self-Love & Body, Love & Partnership, Career & Calling, Money & Abundance, Experiences, Home & Aesthetic, Mind & Spirit, Friendships & Joy | Structural tension (Fritz), Odyssey Plans, money scripts (Klontz) |
+| **Horizons** | Timeline: Chapter 27 in ink, 2–5 years in pencil, 10+ years as essence — linked by backcasting | Construal-level theory, backcasting |
 | **Goals → Process** | Dream → outcome → quarterly markers → weekly process goals → tiny habit, with WOOP & if-then shield and a weekly promise tracker | Process goals, WOOP (Oettingen), implementation intentions (Gollwitzer), Tiny Habits (Fogg) |
 | **Daily Journal** | Morning intention, self-care checklist, evening reflection, weekly review, mood/energy/adored chart | Three Good Things (Seligman), self-distancing, self-compassion (Neff) |
 | **Belief Alchemy** | Rewrite limiting beliefs and rate their strength before/after | ABC model (CBT), Byron Katie's four questions, behavioural experiments |
@@ -25,6 +26,7 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
+The chapter follows your age (set it, or your birthday, in **My Book → Settings**; default 26 → Chapter 27).
 Everything autosaves to `data/vision_book.json` (git-ignored, stays private on your device).
 
 ### Online (Streamlit Community Cloud)

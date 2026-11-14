@@ -132,6 +132,32 @@ def name():
     return get("name") or C.OWNER
 
 
+def age_now():
+    b = get("birthday")
+    if b:
+        b = dt.date.fromisoformat(b)
+        return TODAY.year - b.year - ((TODAY.month, TODAY.day) < (b.month, b.day))
+    return int(get("age", C.DEFAULT_AGE))
+
+
+def ordinal(n):
+    return f"{n}{'th' if 11 <= n % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def ages():
+    now = age_now()
+    return dict(now=now, next=now + 1, nth=ordinal(now + 1), mid_from=now + 2, mid_to=now + 5, far=now + 10)
+
+
+def A(s):
+    """Fill the age placeholders ({now}, {next}, {nth}…) in a content string."""
+    return s.format(**ages())
+
+
+def chapter():
+    return f"Chapter {age_now() + 1}"
+
+
 def card(body, cls=""):
     st.markdown(f'<div class="card {cls}">{body}</div>', unsafe_allow_html=True)
 
@@ -187,7 +213,7 @@ def streak():
 def page_home():
     lang, aff, trans = C.AFFIRMATIONS[day_index(len(C.AFFIRMATIONS))]
     greeting = {"Italiano": "Buongiorno", "Français": "Bonjour", "Русский": "Доброе утро"}[lang]
-    style.header(f"{C.CHAPTER} · {TODAY.strftime('%A %d %B %Y')}", f"{greeting}, {esc(name())}.", C.TAGLINE)
+    style.header(f"{chapter()} · {TODAY.strftime('%A %d %B %Y')}", f"{greeting}, {esc(name())}.", C.TAGLINE)
 
     q, by = C.QUOTES[day_index(len(C.QUOTES))]
     own = items("quotes")
@@ -261,13 +287,13 @@ def page_home():
 def page_identity():
     style.header("identity · narrative", "Who I'm Becoming",
                  "Not a list of goals — a woman. Write her so clearly that you could recognise her walking down the street.")
-    t1, t2, t3, t4, t5 = st.tabs(["Her portrait", "Values & feelings", "Letter from 30", "Best Possible Self", "Walk my talk"])
+    t1, t2, t3, t4, t5 = st.tabs(["Her portrait", "Values & feelings", f"Letter from {ages()['next']}", "Best Possible Self", "Walk my talk"])
 
     with t1:
         style.psych("Identity drives behaviour more reliably than goals. When you act from "
                     "<i>“I am a woman who…”</i> instead of <i>“I should…”</i>, each action becomes a vote for who you are becoming (James Clear, <i>Atomic Habits</i>; self-perception theory, Bem).")
         for k, q in C.IDENTITY_PROMPTS:
-            text(f"id::{k}", q, height=140)
+            text(f"id::{k}", A(q), height=140)
 
     with t2:
         style.psych("Core desired feelings: decide how you want to <b>feel</b>, then choose the goals and habits that create that feeling. "
@@ -286,10 +312,10 @@ def page_identity():
                 slider(f"val::{v}::score", f"How fully I live “{v}” right now", 1, 10, 5)
 
     with t3:
-        style.psych(C.FUTURE_LETTER_GUIDE, "Future-self continuity")
-        st.markdown(f'<div class="serif" style="font-size:1.3rem;font-style:italic">Dear {esc(name())} at 29,</div>', unsafe_allow_html=True)
-        text("letter30", "", height=420, placeholder="I'm writing to you from the morning of our 30th birthday…")
-        st.markdown('<div class="serif" style="font-size:1.3rem;font-style:italic;text-align:right">With all my love, — you, at 30</div>', unsafe_allow_html=True)
+        style.psych(A(C.FUTURE_LETTER_GUIDE), "Future-self continuity")
+        st.markdown(f'<div class="serif" style="font-size:1.3rem;font-style:italic">Dear {esc(name())} at {ages()['now']},</div>', unsafe_allow_html=True)
+        text("letter_next", "", height=420, placeholder=A("I'm writing to you from the morning of our {nth} birthday…"))
+        st.markdown(f'<div class="serif" style="font-size:1.3rem;font-style:italic;text-align:right">With all my love, — you, at {ages()["next"]}</div>', unsafe_allow_html=True)
 
     with t4:
         style.psych(C.BEST_SELF_GUIDE, "Best Possible Self")
@@ -328,7 +354,7 @@ def page_chapters():
                 with a:
                     slider(f"wheel::{c['key']}::now", f"{c['symbol']} {c['name']} · today", 1, 10, 5)
                 with b:
-                    slider(f"wheel::{c['key']}::want", "by my 30th birthday", 1, 10, 9)
+                    slider(f"wheel::{c['key']}::want", A("by my {nth} birthday"), 1, 10, 9)
         st.markdown("<br>", unsafe_allow_html=True)
         for c in C.CATEGORIES:
             keys = [f"cat::{c['key']}::{k}" for k, _ in c["prompts"]]
@@ -359,6 +385,47 @@ def page_chapters():
 
 
 # ---------------------------------------------------------------------------
+def page_horizons():
+    a = ages()
+    style.header("the long view", "Horizons",
+                 f"You're {a['now']}. Live Chapter {a['next']} in ink — sketch the chapters after it in pencil.")
+    style.psych("Construal-level theory (Trope &amp; Liberman): the far future is best imagined in <b>why</b> — values, essence, feeling; "
+                "the near future in <b>how</b> — concrete steps. <b>Backcasting</b> connects them: start from the distant picture and ask "
+                "what must be true one step earlier. Big vision, small steps.")
+    nodes = "".join(
+        f'<div style="flex:1;text-align:center">'
+        f'<div style="width:{s}px;height:{s}px;border-radius:50%;margin:0 auto .5rem;background:{bg};border:1px solid {GOLD}"></div>'
+        f'<div class="serif" style="font-size:1.25rem;color:#6E3A42">{A(h["label"])}</div>'
+        f'<div class="small" style="color:{MUTED}">{h["span"]}<br><i>{h["mode"]}</i></div></div>'
+        for h, s, bg in zip(C.HORIZONS, (46, 32, 22), (WINE, ROSE, "#F4E1DC")))
+    st.markdown(f'<div class="card" style="position:relative"><div style="position:absolute;left:16%;right:16%;top:3.0rem;'
+                f'border-top:1px dashed {GOLD}"></div><div style="display:flex;position:relative">'
+                f'<div style="flex:1;text-align:center"><div style="width:14px;height:14px;border-radius:50%;margin:16px auto .5rem;'
+                f'background:{GOLD}"></div><div class="serif" style="font-size:1.25rem;color:#6E3A42">Today · {a["now"]}</div>'
+                f'<div class="small" style="color:{MUTED}">where you stand</div></div>{nodes}</div></div>',
+                unsafe_allow_html=True)
+
+    labels = [f'{A(h["label"])} · {h["span"]}' for h in C.HORIZONS]
+    pick = st.radio("Horizon", labels, horizontal=True, label_visibility="collapsed")
+    H = C.HORIZONS[labels.index(pick)]
+    st.markdown(f'<div class="eyebrow">{H["span"]} · written in {H["mode"]}</div><h2>{A(H["label"])}</h2>'
+                f'<div class="lede">{H["essence"]}</div>', unsafe_allow_html=True)
+    multi(f"hz::{H['key']}::feelings", "In this chapter I feel…", C.FEELINGS, max_selections=3)
+    for k, q in H["prompts"]:
+        text(f"hz::{H['key']}::{k}", A(q), height=110 if H["key"] != "far" else 90)
+    if H["key"] == "near":
+        st.markdown('<div class="small">Chapter ' + str(a["next"]) + ' is the heart of the book — go deeper in '
+                    '<i>Who I\'m Becoming</i>, <i>Life Chapters</i> and <i>Goals → Process</i>.</div>', unsafe_allow_html=True)
+        st.button("Open Life Chapters →", on_click=go_to, args=("Life Chapters",))
+    else:
+        style.psych("Fill this lightly and revisit it on each birthday. Your future self is allowed to change her mind — "
+                    "only the <i>bridge</i> answer turns into action now.", "Pencil, not ink")
+        bridge = get(f"hz::{H['key']}::bridge").strip()
+        if bridge:
+            st.button("Turn the bridge into a goal ladder →", on_click=go_to, args=("Goals → Process",))
+
+
+# ---------------------------------------------------------------------------
 def page_goals():
     style.header("goal design", "From Dream to Daily Ritual",
                  "Big goals inspire. Process goals change your life. Here you translate one into the other.")
@@ -370,7 +437,7 @@ def page_goals():
         with st.form("ladder", clear_on_submit=True):
             cat = st.selectbox("Life chapter", [c["name"] for c in C.CATEGORIES])
             dream = st.text_input("The dream (big, emotional, a little scary)", placeholder="Run a fully booked coaching practice I love")
-            outcome = st.text_input("Outcome goal — by my 30th birthday", placeholder="12 private clients and €X per month")
+            outcome = st.text_input(A("Outcome goal — by my {nth} birthday"), placeholder="12 private clients and €X per month")
             perf = st.text_area("Performance markers — quarterly milestones", placeholder="Q1: offer defined & priced\nQ2: first 4 clients…", height=90)
             process = st.text_area("Process goals — weekly, 100% in my control", placeholder="2 deep-work blocks · 1 post · 3 conversations", height=90)
             tiny = st.text_input("Tiny daily habit (BJ Fogg): After I ___, I will ___", placeholder="After I pour my coffee, I will write one line of content")
@@ -389,7 +456,7 @@ def page_goals():
     wk = f"{week.year}-W{week.week:02d}"
     for i, L in enumerate(items("ladders")):
         st.markdown(f'<div class="eyebrow">{esc(L["cat"])}</div><h3>{esc(L["dream"])}</h3>', unsafe_allow_html=True)
-        rungs = [("the feeling", L.get("feel")), ("outcome · by 30", L["outcome"]), ("performance · quarterly", L["perf"]),
+        rungs = [("the feeling", L.get("feel")), (A("outcome · by {next}"), L["outcome"]), ("performance · quarterly", L["perf"]),
                  ("process · weekly", L["process"]), ("tiny habit · daily", L["tiny"]),
                  ("if-then shield", L["plan"])]
         st.markdown('<div class="ladder">' + "".join(
@@ -541,23 +608,23 @@ def page_visualise():
     style.header("guided imagery", "Visualise", "Read one line, close your eyes, see it. Then the next.")
     style.psych("Visualisation works best when you imagine the <b>process</b>, not only the result (Taylor & Pham, 1999). "
                 "Pure fantasy can even lower your energy (Oettingen) — so these scripts always include the steps and the obstacles.")
-    titles = [f'{v["title"]}  ·  {v["minutes"]} min' for v in C.VISUALIZATIONS]
+    titles = [f'{A(v["title"])}  ·  {v["minutes"]} min' for v in C.VISUALIZATIONS]
     sel = st.selectbox("Choose a journey", titles)
     V = C.VISUALIZATIONS[titles.index(sel)]
     sk = f"vstep_{V['key']}"
     st.session_state.setdefault(sk, 0)
     step = st.session_state[sk]
-    st.markdown(f'<div class="eyebrow">{V["type"]}</div><h2>{V["title"]}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<div class="eyebrow">{V["type"]}</div><h2>{A(V["title"])}</h2>', unsafe_allow_html=True)
 
     mode = st.radio("Mode", ["One step at a time", "Full script"], horizontal=True, label_visibility="collapsed")
     if mode == "Full script":
-        st.markdown("".join(f'<div class="step"><div class="n">{i + 1}</div><div class="t">{esc(s)}</div></div>'
+        st.markdown("".join(f'<div class="step"><div class="n">{i + 1}</div><div class="t">{esc(A(s))}</div></div>'
                             for i, s in enumerate(V["steps"])), unsafe_allow_html=True)
     else:
         n = len(V["steps"])
         st.progress((step + 1) / n)
         card(f'<div class="eyebrow">step {step + 1} of {n}</div>'
-             f'<div class="quote" style="font-size:1.7rem">{esc(V["steps"][step])}</div>', "blush")
+             f'<div class="quote" style="font-size:1.7rem">{esc(A(V["steps"][step]))}</div>', "blush")
         a, _, b = st.columns([1, 3, 1])
         if a.button("← Back", disabled=step == 0):
             st.session_state[sk] -= 1
@@ -566,7 +633,7 @@ def page_visualise():
             st.session_state[sk] += 1
             st.rerun()
     style.ornament()
-    text(f"viz::{V['key']}::{TODAY.isoformat()}", V["reflect"], height=120)
+    text(f"viz::{V['key']}::{TODAY.isoformat()}", A(V["reflect"]), height=120)
 
 
 # ---------------------------------------------------------------------------
@@ -582,7 +649,7 @@ def page_journal():
                     "Asking <i>“What would future me do?”</i> borrows her perspective — psychologists call it self-distancing, and it makes wiser choices easier.")
         multi(J + "feelings", "Today I want to feel…", C.FEELINGS, max_selections=3)
         for k, q in C.JOURNAL_MORNING[1:]:
-            text(J + k, q, height=80)
+            text(J + k, A(q), height=80)
         st.markdown("#### Taking care of her")
         cols = st.columns(2)
         for i, item in enumerate(C.SELF_CARE):
@@ -648,7 +715,7 @@ def page_journal():
                     for k, q in C.JOURNAL_MORNING[1:] + C.JOURNAL_EVENING + [("lang", "In another language")]:
                         v = get(f"journal::{x}::{k}")
                         if str(v).strip():
-                            st.markdown(f"**{q}**  \n{esc(v)}")
+                            st.markdown(f"**{A(q)}**  \n{esc(v)}")
 
 
 # ---------------------------------------------------------------------------
@@ -665,7 +732,7 @@ def page_muses():
             cols = st.columns(2)
             for col, M in zip(cols, muses[i:i + 2]):
                 with col:
-                    card(f'<div class="muse-name">{esc(M["name"])}</div><div class="muse-role">{esc(M["role"])}</div>'
+                    card(f'<div class="muse-name">{esc(M["name"])}</div><div class="muse-role">{esc(A(M["role"]))}</div>'
                          + style.chips([esc(e) for e in M["embodies"]]) +
                          f'<div class="serif" style="font-size:1.15rem;font-style:italic;margin-top:.7rem">{esc(M["lesson"])}</div>')
                     text(f"muse::{M['name']}::awakens", "What she awakens in me / the behaviour I borrow", height=80)
@@ -736,7 +803,7 @@ def page_muses():
 
 # ---------------------------------------------------------------------------
 def compile_book() -> str:
-    out = [f"# The Vision Book of {name()}", f"*{C.CHAPTER} — {C.TAGLINE}*", f"_Compiled {TODAY.strftime('%d %B %Y')}_", ""]
+    out = [f"# The Vision Book of {name()}", f"*{chapter()} — {C.TAGLINE}*", f"_Compiled {TODAY.strftime('%d %B %Y')}_", ""]
 
     def add(title, val):
         if isinstance(val, list):
@@ -748,8 +815,8 @@ def compile_book() -> str:
     add("Core feelings", get("core_feelings", []))
     add("Values", get("values", []))
     for k, q in C.IDENTITY_PROMPTS:
-        add(q, get(f"id::{k}"))
-    add("Letter from my 30-year-old self", get("letter30"))
+        add(A(q), get(f"id::{k}"))
+    add(A("Letter from my {next}-year-old self"), get("letter_next"))
     add("Best Possible Self", get("bestself"))
     add("My morning sentence", get("bestself_line"))
     for c in C.CATEGORIES:
@@ -797,6 +864,14 @@ def page_book():
                 st.error("That file doesn't look like a Vision Book backup.")
     with t3:
         line("name", "My name", placeholder=C.OWNER)
+        if not get("birthday"):
+            v = st.number_input("My age right now", 16, 99, int(get("age", C.DEFAULT_AGE)),
+                                help="The book is always written towards your next birthday.")
+            if v != get("age", C.DEFAULT_AGE):
+                D()["age"] = int(v)
+                persist()
+                st.rerun()
+        st.caption(f"You're {age_now()} — this book is {chapter()}. Once you set your birthday, it turns the page by itself.")
         b = get("birthday")
         val = st.date_input("My birthday", dt.date.fromisoformat(b) if b else None,
                             min_value=dt.date(1980, 1, 1), max_value=TODAY, format="DD/MM/YYYY")
@@ -811,6 +886,7 @@ PAGES = {
     "Welcome": ("❦", page_home),
     "Who I'm Becoming": ("✧", page_identity),
     "Life Chapters": ("◎", page_chapters),
+    "Horizons": ("⟡", page_horizons),
     "Goals → Process": ("⇡", page_goals),
     "Daily Journal": ("✎", page_journal),
     "Belief Alchemy": ("⚗", page_beliefs),
@@ -828,7 +904,7 @@ def main():
     with st.sidebar:
         st.markdown(f'<div class="eyebrow">the vision book of</div>'
                     f'<div class="muse-name" style="font-size:2rem">{esc(name())}</div>'
-                    f'<div class="muse-role">{C.CHAPTER}</div>', unsafe_allow_html=True)
+                    f'<div class="muse-role">{chapter()}</div>', unsafe_allow_html=True)
         st.session_state.setdefault("nav", "Welcome")
         st.radio("Navigate", list(PAGES), key="nav", label_visibility="collapsed",
                  format_func=lambda p: f"{PAGES[p][0]}   {p}")

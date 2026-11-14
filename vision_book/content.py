@@ -4,7 +4,7 @@ Everything here is plain data so it is easy to edit, translate or extend.
 """
 
 OWNER = "Tatyana"
-CHAPTER = "Chapter 29"
+DEFAULT_AGE = 26  # the book is written towards the NEXT birthday: Chapter {next}
 TAGLINE = "The year I walk my talk — and adore the woman doing it."
 
 # ---------------------------------------------------------------------------
@@ -154,7 +154,7 @@ CATEGORY_BY_KEY = {c["key"]: c for c in CATEGORIES}
 # Identity — "The Woman I Am Becoming"
 # ---------------------------------------------------------------------------
 IDENTITY_PROMPTS = [
-    ("she_is", "Who is she? Describe the 30-year-old you as if you were writing her character for a film. How does she walk into a room?"),
+    ("she_is", "Who is she? Describe the {next}-year-old you as if you were writing her character for a film. How does she walk into a room?"),
     ("i_am", "Write 5–10 'I am the kind of woman who…' statements. (Identity-based habits, James Clear: every action is a vote for who you become.)"),
     ("values", "Her top 5 values — and what each one looks like in behaviour:"),
     ("voice", "How does she speak — to herself, to others, about her dreams?"),
@@ -173,7 +173,7 @@ VALUES_LIST = [
 # Hershfield: stronger "future self continuity" -> better long-term choices.
 FUTURE_LETTER_GUIDE = (
     "Psychologist Hal Hershfield found that the more connected we feel to our future self, the "
-    "better we take care of her today. Write a letter FROM yourself on your 30th birthday TO you "
+    "better we take care of her today. Write a letter FROM yourself on your {nth} birthday TO you "
     "now. Tell her what you're proud of, what she let go of, what she was afraid of that turned out "
     "fine, and what she should start doing this week."
 )
@@ -243,19 +243,19 @@ DARES = [
 # ---------------------------------------------------------------------------
 VISUALIZATIONS = [
     {
-        "key": "birthday30",
-        "title": "The Morning of My 30th Birthday",
+        "key": "next_birthday",
+        "title": "The Morning of My {nth} Birthday",
         "type": "Outcome · identity",
         "minutes": 8,
         "steps": [
             "Close your eyes. Take three slow breaths, exhaling longer than you inhale.",
-            "It is the morning of your 30th birthday. Notice where you wake up. The light. The sheets. The scent in the room.",
+            "It is the morning of your {nth} birthday. Notice where you wake up. The light. The sheets. The scent in the room.",
             "Before you open your phone, you lie still and feel it: you kept your promises to yourself this year.",
             "Walk to the mirror. Look at the woman there. What has changed in her eyes, her posture, her skin, her smile?",
             "You get dressed. What do you choose to wear? Feel the fabric on your skin.",
             "Messages are arriving. Who is writing to you? What do they say about the year you've had?",
             "Think of your work, your bank account, your love life, your body. Let one image appear for each.",
-            "Future you turns to you — the 29-year-old — and says one sentence. Listen. Remember it.",
+            "Future you turns to you — the {now}-year-old — and says one sentence. Listen. Remember it.",
             "Breathe in that feeling. Anchor it: press your thumb and middle finger together. Open your eyes.",
         ],
         "reflect": "What sentence did she say to you? What feeling will you carry today?",
@@ -358,7 +358,7 @@ MUSES = [
     },
     {
         "name": "The Woman Who Values Herself",
-        "role": "The archetype — the you of Chapter 30",
+        "role": "The archetype — the you of Chapter {next}",
         "embodies": ["Passionate about her life", "Keeps promises to herself", "Receives with grace", "Chooses, never settles"],
         "lesson": "She doesn't wait to be chosen. She chooses — herself first.",
     },
@@ -404,7 +404,7 @@ SELF_CARE = [
 
 JOURNAL_MORNING = [
     ("feel", "Today I want to feel… (three words)"),
-    ("future_me", "What would 30-year-old me do today?"),
+    ("future_me", "What would {next}-year-old me do today?"),
     ("adore", "One way I will adore myself today:"),
     ("brave", "One brave act (outside my comfort zone):"),
     ("ifthen", "IF ___ gets in my way, THEN I will ___"),
@@ -423,4 +423,52 @@ WEEKLY_REVIEW = [
     ("evidence", "Evidence that I am becoming her:"),
     ("adjust", "What will I adjust next week? (not more effort — smarter design)"),
     ("focus", "My ONE focus for next week:"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Horizons — the further future, one chapter at a time.
+# Construal-level theory (Trope & Liberman): we think about the distant future
+# in abstract "why" terms and the near future in concrete "how" terms. So the
+# far horizons ask about essence and values; the near one asks about actions.
+# Backcasting connects them: "what must be true by {next} for this to happen?"
+# ---------------------------------------------------------------------------
+HORIZONS = [
+    {
+        "key": "near",
+        "label": "Chapter {next}",
+        "span": "the next 12 months",
+        "mode": "ink",
+        "essence": "Concrete. Daily. This is where you live — the rest of the book is this chapter.",
+        "prompts": [
+            ("headline", "If this year were a film, its title would be…"),
+            ("three", "The three things that would make Chapter {next} unforgettable:"),
+        ],
+    },
+    {
+        "key": "mid",
+        "label": "Chapters {mid_from}–{mid_to}",
+        "span": "2 to 5 years from now",
+        "mode": "pencil",
+        "essence": "Broad strokes. Write it in pencil, not ink — directions, not plans.",
+        "prompts": [
+            ("life", "At {mid_to}, a regular week in my life looks like…"),
+            ("work", "My work and income at {mid_to}, in a few sentences:"),
+            ("love", "My love life and home at {mid_to}:"),
+            ("bridge", "Backcasting: what must be true by {next} so that this future becomes likely?"),
+        ],
+    },
+    {
+        "key": "far",
+        "label": "Chapter {far}+",
+        "span": "10 years and beyond",
+        "mode": "watercolour",
+        "essence": "Essence only. Who she is, what she stands for, how she makes people feel.",
+        "prompts": [
+            ("essence", "At {far}, what does my life stand for?"),
+            ("legacy", "What do the people I love say about me when I'm not in the room?"),
+            ("whisper", "What does {far}-year-old me whisper to me today?"),
+            ("bridge", "Backcasting: which one quality must I start practising now to become her?"),
+        ],
+    },
 ]
