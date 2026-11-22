@@ -6,6 +6,7 @@ import datetime as dt
 import html
 import json
 import random
+from zoneinfo import ZoneInfo
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -18,7 +19,7 @@ style.inject()
 esc = html.escape
 
 WINE, GOLD, ROSE, MUTED = "#9E5A63", "#B8975A", "#D9A5A0", "#8A7472"
-TODAY = dt.date.today()
+TODAY = dt.datetime.now(ZoneInfo("Europe/Amsterdam")).date()
 
 
 # ---------------------------------------------------------------------------
@@ -53,14 +54,36 @@ def gate() -> bool:
 # ---------------------------------------------------------------------------
 # Data binding: every field autosaves into one JSON file.
 # ---------------------------------------------------------------------------
+def _storage_cfg():
+    try:
+        return dict(st.secrets.get("storage", {}))
+    except Exception:
+        return {}
+
+
+def store() -> storage.BookStore:
+    if "store" not in st.session_state:
+        st.session_state.store = storage.BookStore(_storage_cfg())
+    return st.session_state.store
+
+
 def D() -> dict:
     if "data" not in st.session_state:
-        st.session_state.data = storage.load()
+        try:
+            st.session_state.data = store().load()
+        except (storage.SaveError, Exception) as e:  # never start with an empty book silently
+            st.error(f"I couldn't open your book from the cloud: {e}. Nothing was overwritten — try refreshing in a minute.")
+            st.stop()
     return st.session_state.data
 
 
 def persist():
-    storage.save(D())
+    try:
+        store().save(D())
+        st.session_state.save_error = ""
+    except Exception as e:
+        st.session_state.save_error = str(e)
+        st.toast(f"⚠ Not saved to the cloud: {e}", icon="⚠️")
 
 
 def _sync(key):
@@ -205,6 +228,66 @@ def streak():
         n += 1
         d -= dt.timedelta(days=1)
     return n
+
+
+
+DAY_FIELDS = C.JOURNAL_MORNING[1:] + C.JOURNAL_EVENING + [("lang", "In another language")]
+
+
+def day_has_writing(x):
+    return any(str(get(f"journal::{x}::{k}")).strip() for k, _ in DAY_FIELDS)
+
+
+def render_day(x):
+    f = get(f"journal::{x}::feelings", [])
+    meta = [f"{lbl} {get(f'journal::{x}::{k}')}/10" for k, lbl in (("mood", "Mood"), ("energy", "Energy"), ("adored", "Adored"))
+            if get(f"journal::{x}::{k}", None) is not None]
+    care = [i for i in C.SELF_CARE if get(f"journal::{x}::care::{i}", False)]
+    if f or meta:
+        st.markdown(style.chips(f) + style.chips(meta, gold=True), unsafe_allow_html=True)
+    for k, q in DAY_FIELDS:
+        v = get(f"journal::{x}::{k}")
+        if str(v).strip():
+            st.markdown(f"**{esc(A(q))}**  \n{esc(v)}")
+    if care:
+        st.caption("Self-care: " + " · ".join(care))
+    if not (f or meta or care or day_has_writing(x)):
+        st.caption("Nothing written on this day.")
+
+
+def mood_chart(dates, height):
+    fig = go.Figure()
+    for k, nm, col in (("mood", "Mood", WINE), ("energy", "Energy", GOLD), ("adored", "Felt adored", ROSE)):
+        pts = [(x, get(f"journal::{x}::{k}", None)) for x in dates]
+        pts = [p for p in pts if p[1] is not None]
+        if pts:
+            fig.add_trace(go.Scatter(x=[p[0] for p in pts], y=[p[1] for p in pts], name=nm, mode="lines+markers",
+                                     line=dict(color=col, width=2, shape="spline"), marker=dict(size=7)))
+    if not fig.data:
+        return
+    fig.update_layout(height=height, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)",
+                      plot_bgcolor="rgba(0,0,0,0)", yaxis=dict(range=[0, 10.5], gridcolor="#EADBD3"),
+                      xaxis=dict(type="date", tickformat="%a %d %b", dtick=86400000 * max(1, len(dates) // 10)),
+                      font=dict(family="Jost, sans-serif", color="#6E3A42"), legend=dict(orientation="h", y=1.2))
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
+def _pick_day(x):
+    st.session_state.jdate = x
+
+
+def week_strip():
+    """Seven little day buttons: see at a glance which days you wrote, jump to any of them."""
+    sel = st.session_state.get("jdate", TODAY)
+    monday = sel - dt.timedelta(days=sel.weekday())
+    written = set(journal_dates())
+    cols = st.columns(7)
+    for i, col in enumerate(cols):
+        x = monday + dt.timedelta(days=i)
+        mark = "●" if x.isoformat() in written else "○"
+        label = f"{x.strftime('%a')} {x.day} {mark}"
+        col.button(label, key=f"wk_{x}", on_click=_pick_day, args=(x,), disabled=x > TODAY,
+                   type="primary" if x == sel else "secondary", width="stretch")
 
 
 # ===========================================================================
@@ -639,7 +722,9 @@ def page_visualise():
 # ---------------------------------------------------------------------------
 def page_journal():
     style.header("daily practice", "Daily Journal", "Small pages, written often, become a different life.")
-    d = st.date_input("Page of", TODAY, max_value=TODAY, format="DD/MM/YYYY")
+    st.session_state.setdefault("jdate", TODAY)
+    week_strip()
+    d = st.date_input("Page of", key="jdate", max_value=TODAY, format="DD/MM/YYYY")
     iso = d.isoformat()
     J = f"journal::{iso}::"
 
@@ -677,6 +762,18 @@ def page_journal():
         st.markdown(f'<div class="eyebrow">week {w} · {y}</div>', unsafe_allow_html=True)
         style.psych("A weekly review turns experience into learning (Kolb's learning cycle). "
                     "Focus on design changes, not on trying harder — willpower is a poor strategy, systems are a good one.")
+        monday = d - dt.timedelta(days=d.weekday())
+        days = [(monday + dt.timedelta(days=i)).isoformat() for i in range(7)]
+        written = [x for x in days if x in set(journal_dates())]
+        st.markdown(f"#### First, read your week back ({len(written)} of 7 days written)")
+        if written:
+            mood_chart(written, 200)
+            for x in written:
+                with st.expander(dt.date.fromisoformat(x).strftime("%A %d %B")):
+                    render_day(x)
+        else:
+            st.info("No daily pages in this week yet — you can still reflect from memory.")
+        st.markdown("#### Then, reflect")
         for k, q in C.WEEKLY_REVIEW:
             text(W + k, q, height=90)
         st.markdown("#### Quick pulse per chapter")
@@ -690,32 +787,16 @@ def page_journal():
         if not dates:
             st.info("Your story starts with the first page. Write this morning's intention ✦")
         else:
-            rows = [(x, get(f"journal::{x}::mood", None), get(f"journal::{x}::energy", None), get(f"journal::{x}::adored", None))
-                    for x in dates]
-            fig = go.Figure()
-            for idx, (nm, col) in enumerate([("Mood", WINE), ("Energy", GOLD), ("Felt adored", ROSE)], start=1):
-                pts = [(r[0], r[idx]) for r in rows if r[idx] is not None]
-                if pts:
-                    fig.add_trace(go.Scatter(x=[p[0] for p in pts], y=[p[1] for p in pts], name=nm, mode="lines+markers",
-                                             line=dict(color=col, width=2, shape="spline"), marker=dict(size=7)))
-            fig.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)",
-                              plot_bgcolor="rgba(0,0,0,0)", yaxis=dict(range=[0, 10.5], gridcolor="#EADBD3"),
-                              font=dict(family="Jost, sans-serif", color="#6E3A42"), legend=dict(orientation="h", y=1.15))
-            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+            mood_chart(dates, 300)
             care_total = {i: sum(1 for x in dates if get(f"journal::{x}::care::{i}", False)) for i in C.SELF_CARE}
             st.markdown('<div class="eyebrow">self-care rituals kept</div>' +
                         style.chips([f"{k} · {v}" for k, v in sorted(care_total.items(), key=lambda kv: -kv[1]) if v], gold=True),
                         unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("Read a whole period at once in **My Book → My journal**.")
             for x in reversed(dates):
                 with st.expander(dt.date.fromisoformat(x).strftime("%A %d %B %Y")):
-                    f = get(f"journal::{x}::feelings", [])
-                    if f:
-                        st.markdown(style.chips(f), unsafe_allow_html=True)
-                    for k, q in C.JOURNAL_MORNING[1:] + C.JOURNAL_EVENING + [("lang", "In another language")]:
-                        v = get(f"journal::{x}::{k}")
-                        if str(v).strip():
-                            st.markdown(f"**{A(q)}**  \n{esc(v)}")
+                    render_day(x)
 
 
 # ---------------------------------------------------------------------------
@@ -760,7 +841,7 @@ def page_muses():
             if st.form_submit_button("Pin it"):
                 src = None
                 if up is not None:
-                    src = "file:" + storage.save_image(up.name, up.getvalue())
+                    src = store().save_image(up.name, up.getvalue())
                 elif url.strip():
                     src = url.strip()
                 if src:
@@ -776,7 +857,7 @@ def page_muses():
             with cols[n % 3]:
                 src = B["src"]
                 try:
-                    st.image(str(storage.image_path(src[5:])) if src.startswith("file:") else src, width="stretch")
+                    st.image(store().image(src), width="stretch")
                 except Exception:
                     st.caption("(image could not load)")
                 if B.get("caption"):
@@ -802,6 +883,33 @@ def page_muses():
 
 
 # ---------------------------------------------------------------------------
+def compile_journal(dates) -> str:
+    out = []
+    for x in dates:
+        out.append(f"### {dt.date.fromisoformat(x).strftime('%A %d %B %Y')}")
+        f = get(f"journal::{x}::feelings", [])
+        if f:
+            out.append("*Feeling: " + ", ".join(f) + "*")
+        scores = [f"{lbl} {get(f'journal::{x}::{k}')}/10" for k, lbl in (("mood", "mood"), ("energy", "energy"), ("adored", "adored"))
+                  if get(f"journal::{x}::{k}", None) is not None]
+        if scores:
+            out.append("*" + " · ".join(scores) + "*")
+        out.append("")
+        for k, q in DAY_FIELDS:
+            v = str(get(f"journal::{x}::{k}")).strip()
+            if v:
+                out.extend([f"**{A(q)}**", "", v, ""])
+    weeks = sorted({k.split("::")[1] for k in D() if k.startswith("week::")})
+    wanted = {f"{dt.date.fromisoformat(x).isocalendar()[0]}-W{dt.date.fromisoformat(x).isocalendar()[1]:02d}" for x in dates}
+    for wk in [w for w in weeks if w in wanted]:
+        out.append(f"### Weekly review · {wk}")
+        for k, q in C.WEEKLY_REVIEW:
+            v = str(get(f"week::{wk}::{k}")).strip()
+            if v:
+                out.extend([f"**{q}**", "", v, ""])
+    return "\n".join(out)
+
+
 def compile_book() -> str:
     out = [f"# The Vision Book of {name()}", f"*{chapter()} — {C.TAGLINE}*", f"_Compiled {TODAY.strftime('%d %B %Y')}_", ""]
 
@@ -839,17 +947,83 @@ def compile_book() -> str:
     return "\n".join(out)
 
 
+def storage_panel():
+    S = store()
+    if S.durable:
+        card(f'<div class="eyebrow">☁ safe</div><h4>Your book is saved in your private repository</h4>'
+             f'<div class="small">{esc(S.cloud.repo)} · every change is stored as it happens, and updates to the app '
+             f'can no longer erase it. Phone and laptop see the same book.</div>', "blush")
+    else:
+        if S.problem:
+            st.error(f"Cloud saving is set up but not working: {S.problem}")
+        card('<div class="eyebrow">⚠ temporary storage</div><h4>Right now your writing only lives on the app’s server</h4>'
+             '<div class="small">Online, Streamlit restarts the app after every update and after a period of rest — and then '
+             'the server’s files are wiped. Set up private cloud saving once (≈10 minutes) and that can’t happen again.</div>', "wine")
+        with st.expander("✦ Set up private cloud saving — step by step", expanded=True):
+            st.markdown("""
+**1 · Create a private vault for your journal**
+On github.com click **+ → New repository**. Name: `vision-book-data`. Choose **Private** (important!). Click *Create repository*.
+
+**2 · Create a key that only opens that vault**
+Go to github.com → your photo → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
+- Name: `vision book` · Expiration: 1 year (put a reminder in your agenda)
+- **Repository access → Only select repositories →** `vision-book-data`
+- **Permissions → Repository permissions → Contents → Read and write**
+- Click *Generate token* and copy it (it starts with `github_pat_`). You see it only once.
+
+**3 · Give the key to your app**
+On share.streamlit.io → your app → **⋮ → Settings → Secrets**, and add below your password:
+```toml
+[storage]
+github_token = "github_pat_...paste here..."
+github_repo  = "YOUR-GITHUB-NAME/vision-book-data"
+```
+Save. The app restarts — this box turns blush pink and says ☁ *safe*.
+
+**4 · Bring back what you still have**
+If you downloaded a backup earlier, restore it below — it goes straight into the vault.
+""")
+    st.markdown("#### Backup & restore")
+    st.caption("Extra safety: download a backup now and then and keep it somewhere you trust.")
+
+
 def page_book():
     style.header("my book", "My Book & Settings", "Read your vision as one story — and keep it safe.")
-    t1, t2, t3 = st.tabs(["Read my book", "Backup & restore", "Settings"])
+    names = ["Read my book", "My journal", "Keep it safe", "Settings"]
+    if not store().durable:  # safety first until the vault is set up
+        names = ["Keep it safe"] + [n for n in names if n != "Keep it safe"]
+    tabs = dict(zip(names, st.tabs(names)))
+    t1, tj, t2, t3 = (tabs[n] for n in ["Read my book", "My journal", "Keep it safe", "Settings"])
+    with tj:
+        dates = journal_dates()
+        if not dates:
+            st.info("No journal pages yet.")
+        else:
+            period = st.radio("Show", ["This week", "Last 30 days", "Everything", "Choose dates"], horizontal=True)
+            if period == "This week":
+                start = TODAY - dt.timedelta(days=TODAY.weekday())
+                end = TODAY
+            elif period == "Last 30 days":
+                start, end = TODAY - dt.timedelta(days=30), TODAY
+            elif period == "Everything":
+                start, end = dt.date.fromisoformat(dates[0]), TODAY
+            else:
+                rng = st.date_input("From – to", (TODAY - dt.timedelta(days=7), TODAY), max_value=TODAY, format="DD/MM/YYYY")
+                start, end = (rng[0], rng[-1]) if isinstance(rng, tuple) and rng else (TODAY, TODAY)
+            sel = [x for x in dates if start.isoformat() <= x <= end.isoformat()]
+            st.markdown(f'<span class="saved">{len(sel)} page(s)</span>', unsafe_allow_html=True)
+            mood_chart(sel, 220)
+            jm = compile_journal(sel)
+            st.download_button("Download these pages (Markdown)", jm, file_name=f"journal-{start}-{end}.md")
+            with st.container(border=True):
+                st.markdown(jm or "_Nothing written in this period._")
     with t1:
         md = compile_book()
         st.download_button("Download as Markdown", md, file_name=f"vision-book-{TODAY.isoformat()}.md")
         with st.container(border=True):
             st.markdown(md)
     with t2:
-        st.markdown("Everything is saved automatically on this device in `data/vision_book.json`. "
-                    "If you use the online version, download a backup regularly — cloud apps can restart and forget.")
+        storage_panel()
         st.download_button("Download full backup (.json)", json.dumps(D(), ensure_ascii=False, indent=2),
                            file_name=f"vision-book-backup-{TODAY.isoformat()}.json", mime="application/json")
         up = st.file_uploader("Restore from a backup", type=["json"])
@@ -912,7 +1086,13 @@ def main():
         lang, aff, trans = C.AFFIRMATIONS[day_index(len(C.AFFIRMATIONS))]
         st.markdown(f'<div class="serif" style="font-style:italic;font-size:1.1rem">{esc(aff)}</div>'
                     f'<div class="small" style="color:#8A7472">{esc(trans)}</div>', unsafe_allow_html=True)
-        st.markdown('<br><div class="saved">✦ autosaved</div>', unsafe_allow_html=True)
+        if st.session_state.get("save_error"):
+            st.markdown('<br><div class="saved" style="color:#B04A4A">⚠ last change not saved to the cloud</div>', unsafe_allow_html=True)
+        elif store().durable:
+            st.markdown('<br><div class="saved">☁ saved in your private vault</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<br><div class="saved" style="color:#B04A4A">⚠ temporary storage only</div>', unsafe_allow_html=True)
+            st.button("Make it safe →", on_click=go_to, args=("My Book",), key="mksafe")
     PAGES[st.session_state.nav][1]()
 
 

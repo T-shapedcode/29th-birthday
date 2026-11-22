@@ -29,10 +29,23 @@ streamlit run streamlit_app.py
 The chapter follows your age (set it, or your birthday, in **My Book → Settings**; default 26 → Chapter 27).
 Everything autosaves to `data/vision_book.json` (git-ignored, stays private on your device).
 
+### ⚠ Keep your journal safe online
+Streamlit Cloud wipes the app's local files on every update and restart. Online, connect a **private**
+GitHub repository as your journal's vault (the app refuses public ones). Step-by-step instructions are in the app under
+**My Book → Keep it safe**. In short, add to your app's Secrets:
+
+```toml
+[storage]
+github_token = "github_pat_..."              # fine-grained token: only that repo, Contents read & write
+github_repo  = "your-name/vision-book-data"  # PRIVATE repository
+```
+
+Edits from phone and laptop are merged per field, so both devices can be used.
+
 ### Online (Streamlit Community Cloud)
 1. Deploy this repo on [share.streamlit.io](https://share.streamlit.io).
 2. In the app's **Secrets**, add `password = "your-secret-key"` so only you can open the book.
-3. Cloud apps can restart and forget files — use **My Book → Download full backup** regularly, and restore it when needed.
+3. Set up the private vault (see below) so your journal survives restarts and updates.
 
 ## Make it yours
 All prompts, quotes, affirmations, dares and visualisation scripts live in `vision_book/content.py` — plain text, easy to edit.

@@ -77,6 +77,9 @@ textarea:focus, .stTextInput input:focus { border-color: var(--rose) !important;
   background: var(--wine) !important; color: #fff !important;
 }
 
+button[kind="primary"], button[data-testid="stBaseButton-primary"] {
+  background: var(--wine) !important; color: #fff !important;
+}
 /* Tabs */
 .stTabs [data-baseweb="tab-list"] { gap: .4rem; border-bottom: 1px solid var(--line); }
 .stTabs [data-baseweb="tab"] {
