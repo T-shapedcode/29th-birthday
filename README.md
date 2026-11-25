@@ -3,7 +3,29 @@
 A private, elegant guide & journal for becoming the woman you envision: identity narrative,
 life chapters, psychological exercises, guided visualisations, daily journaling and a mood board.
 
-## What's inside
+## ✦ Recommended: the offline app (`docs/`)
+
+An installable web app that keeps **everything on your own device**: no server that restarts and forgets.
+
+- **Works offline.** Once opened, it runs without internet.
+- **Saved with every letter you type**, in the browser's storage on your phone or laptop.
+- **Optional backup file** (Chrome/Edge on a laptop): auto-saves into a file you choose, e.g. in iCloud Drive / OneDrive / Google Drive.
+- **Optional private vault**: syncs phone ⇄ laptop through a *private* GitHub repository (public ones are refused).
+  Edits from both devices are merged per field. Old data from the Streamlit version loads automatically.
+- Install it: iPhone → Safari → Share → *Add to Home Screen*; Android / laptop → browser menu → *Install app*.
+
+**Put it online (once):** repository **Settings → Pages → Build and deployment → Deploy from a branch →**
+branch `claude/vision-book-app-oe1pni` (or `main` after merging), folder **`/docs`** → Save.
+After a minute it's live at `https://t-shapedcode.github.io/29th-birthday/`.
+Anyone could open that address, but they'd only see an empty book of their own: your writing never leaves your devices and your private vault.
+
+Test locally: `cd docs && python3 -m http.server` → http://localhost:8000
+
+---
+
+## The original Streamlit version (`streamlit_app.py`)
+
+### What's inside
 
 | Page | What you do there | Psychology behind it |
 |---|---|---|
@@ -19,7 +41,7 @@ life chapters, psychological exercises, guided visualisations, daily journaling 
 | **Muses & Mood Board** | Muses (Grace Beverley, Lidia Poët, Jamie Sea, Shi Heng Yi…), Pinterest/image board, quotes | Role models (Lockwood & Kunda) |
 | **My Book** | Read everything as one story, export Markdown, backup/restore, settings | |
 
-## Run it
+### Run it
 
 ```bash
 pip install -r requirements.txt
@@ -47,5 +69,9 @@ Edits from phone and laptop are merged per field, so both devices can be used.
 2. In the app's **Secrets**, add `password = "your-secret-key"` so only you can open the book.
 3. Set up the private vault (see below) so your journal survives restarts and updates.
 
-## Make it yours
-All prompts, quotes, affirmations, dares and visualisation scripts live in `vision_book/content.py` — plain text, easy to edit.
+### Make it yours
+All prompts, quotes, affirmations, dares and visualisation scripts live in `vision_book/content.py`. After editing, regenerate the offline app's copy with:
+
+```bash
+python3 -c "import json,sys; sys.path.insert(0,'.'); from vision_book import content as C; n=[k for k in dir(C) if k.isupper() and k!='CATEGORY_BY_KEY']; open('docs/content.js','w').write('export const C = '+json.dumps({k:getattr(C,k) for k in n},ensure_ascii=False,indent=1)+';\\n')"
+```
